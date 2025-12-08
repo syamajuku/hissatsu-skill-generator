@@ -108,7 +108,7 @@
     .card {
       position: relative;
       width: 100%;
-      aspect-ratio: 2.25 / 3.5; /* カード比率っぽく */
+      aspect-ratio: 2.25 / 3.5;
       background: linear-gradient(135deg, #fefefe 0%, #f5f5f5 40%, #f1e4ff 100%);
       border-radius: 18px;
       box-shadow:
@@ -468,38 +468,12 @@
       return result;
     }
 
-    // ===== 自己紹介文から 体力・攻撃力・防御力を生成 =====
+    // ===== 自己紹介文から 体力・攻撃力・守備力を生成 =====
     function generateStatsFromIntro(intro) {
       const total = decideTotalFromUniqueness(intro);
       const [hp, attack, defense] = splitTotalRandom(total, 3, 0, 99);
       return { total, hp, attack, defense };
     }
-
-// ===== 必殺技名を最大長で、なるべく区切りよく切る =====
-function truncateSkillName(raw, maxLen = 12) {
-  if (!raw) return "";
-  let name = raw.trim();
-  if (name.length <= maxLen) return name;
-
-  // 先頭 maxLen+1 文字までを見て、区切り文字の最後の位置を探す
-  const chunk = name.slice(0, maxLen + 1);
-  const breakPattern = /[ 　・･\-＿‐／:：]/g; // 区切りっぽい文字たち
-  let lastBreak = -1;
-  let m;
-  while ((m = breakPattern.exec(chunk)) !== null) {
-    if (m.index <= maxLen) {
-      lastBreak = m.index;
-    }
-  }
-
-  if (lastBreak > 0) {
-    // 区切り文字の「手前」まで切る
-    return name.slice(0, lastBreak);
-  } else {
-    // 区切りがなければ普通に maxLen で切る
-    return name.slice(0, maxLen);
-  }
-}
 
     // ===== 職業のレア度判定（星1〜5） =====
     function calcJobRarity(job) {
@@ -533,6 +507,32 @@ function truncateSkillName(raw, maxLen = 12) {
         stars = 5; // 英字入りや長めの職業はよりレア扱い
       }
       return stars;
+    }
+
+    // ===== 必殺技名を最大長で、なるべく区切りよく切る =====
+    function truncateSkillName(raw, maxLen = 12) {
+      if (!raw) return "";
+      let name = raw.trim();
+      if (name.length <= maxLen) return name;
+
+      // 先頭 maxLen+1 文字までを見て、区切り文字の最後の位置を探す
+      const chunk = name.slice(0, maxLen + 1);
+      const breakPattern = /[ 　・･\-＿‐／:：]/g; // 区切りっぽい文字たち
+      let lastBreak = -1;
+      let m;
+      while ((m = breakPattern.exec(chunk)) !== null) {
+        if (m.index <= maxLen) {
+          lastBreak = m.index;
+        }
+      }
+
+      if (lastBreak > 0) {
+        // 区切り文字の「手前」まで切る
+        return name.slice(0, lastBreak);
+      } else {
+        // 区切りがなければ普通に maxLen で切る
+        return name.slice(0, maxLen);
+      }
     }
 
     // ===== UIとの接続 =====
@@ -599,9 +599,9 @@ function truncateSkillName(raw, maxLen = 12) {
 
         const data = await res.json();
 
-// 必殺技名：最大12文字、なるべく区切りよく切る
-const name = truncateSkillName(data.name || "", 12);
-skillNameEl.textContent = name;
+        // 必殺技名：最大12文字、なるべく区切りよく切る
+        const name = truncateSkillName(data.name || "", 12);
+        skillNameEl.textContent = name;
 
         skillTaglineEl.textContent = data.tagline || "";
         skillBodyEl.textContent = data.description || "";
@@ -614,7 +614,7 @@ skillNameEl.textContent = name;
         const jobStars = calcJobRarity(job);
         jobRarityEl.textContent = jobStars ? "★".repeat(jobStars) : "";
 
-        // レア度ラベルも職業レア度に連動させてもよい
+        // レア度ラベル
         if (jobStars >= 5) {
           rarityLabelEl.textContent = "LEGENDARY";
         } else if (jobStars === 4) {
