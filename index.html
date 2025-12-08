@@ -5,16 +5,37 @@
   <title>必殺技ジェネレーター</title>
   <style>
     body {
-      font-family: sans-serif;
-      background: #f5f5f5;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #ffe8b3 0, #f5f5f5 45%, #e0e0e0 100%);
       padding: 20px;
-      max-width: 700px;
+      max-width: 900px;
       margin: auto;
     }
     h1 {
       text-align: center;
       margin-bottom: 20px;
     }
+
+    .layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    /* 左側：入力エリア */
+    .left-pane {
+      flex: 1 1 280px;
+      min-width: 260px;
+    }
+
+    .field-label {
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 4px;
+      display: block;
+    }
+
     textarea {
       width: 100%;
       height: 120px;
@@ -23,14 +44,28 @@
       border-radius: 6px;
       border: 1px solid #ccc;
       margin-bottom: 10px;
+      box-sizing: border-box;
+      resize: vertical;
     }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+
     button {
-      padding: 12px 18px;
+      padding: 10px 16px;
       border: none;
       border-radius: 8px;
       cursor: pointer;
       font-size: 14px;
       margin-right: 8px;
+      margin-top: 4px;
     }
     #generateBtn {
       background-color: #007bff;
@@ -63,93 +98,282 @@
       margin-top: 10px;
     }
 
+    /* 右側：カード表示エリア */
     #result {
+      flex: 0 1 320px;
+      max-width: 340px;
       display: none;
-      background: white;
-      padding: 20px;
-      margin-top: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
     }
 
-    .skill-name {
-      font-size: 22px;
-      font-weight: bold;
-      color: #333;
-    }
-    .skill-tagline {
-      margin-top: 5px;
-      font-style: italic;
-      color: #555;
-    }
-    .skill-body {
-      margin-top: 12px;
-      line-height: 1.6;
+    .card {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 2.25 / 3.5; /* カード比率っぽく */
+      background: linear-gradient(135deg, #fefefe 0%, #f5f5f5 40%, #f1e4ff 100%);
+      border-radius: 18px;
+      box-shadow:
+        0 0 0 2px #d1c4e9,
+        0 10px 18px rgba(0,0,0,0.25);
+      padding: 10px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
     }
 
-    .stats-box {
-      margin-top: 16px;
-      padding-top: 10px;
-      border-top: 1px solid #eee;
+    .card-inner {
+      border-radius: 14px;
+      border: 2px solid #b39ddb;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      box-sizing: border-box;
+      background: rgba(255,255,255,0.9);
+    }
+
+    .card-header {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
-      font-size: 14px;
+      align-items: center;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .card-title-label {
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .card-rank {
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #ffe082, #ffca28);
+      font-size: 10px;
+      font-weight: bold;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.7);
+    }
+
+    .card-portrait {
+      flex: 0 0 38%;
+      border-radius: 10px;
+      background: repeating-linear-gradient(
+        135deg,
+        #e3f2fd,
+        #e3f2fd 6px,
+        #bbdefb 6px,
+        #bbdefb 12px
+      );
+      border: 1px solid #90caf9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #1e88e5;
+      text-align: center;
+      margin-bottom: 6px;
+      box-shadow: inset 0 0 4px rgba(0,0,0,0.15);
+    }
+
+    .card-body {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
+    }
+
+    .card-skill-name {
+      font-size: 16px;
+      font-weight: bold;
+      color: #3e2723;
+      text-shadow: 0 1px 0 #fff;
+    }
+    .card-skill-tagline {
+      font-size: 11px;
+      font-style: italic;
+      color: #6d4c41;
+    }
+
+    .card-job {
+      font-size: 10px;
+      color: #424242;
+      background: #fffde7;
+      border-radius: 6px;
+      padding: 3px 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .card-job-label {
+      font-weight: bold;
+      color: #f57f17;
+      font-size: 10px;
+    }
+    .card-job-value {
+      flex: 1;
+    }
+    .card-job-rarity {
+      font-size: 11px;
+      color: #ffb300;
+      white-space: nowrap;
+    }
+
+    .card-intro {
+      margin-top: 2px;
+      padding: 4px;
+      border-radius: 6px;
+      background: #f3e5f5;
+      font-size: 10px;
+      color: #4a148c;
+      max-height: 3.2em;
+      overflow: hidden;
+    }
+    .card-intro-label {
+      font-weight: bold;
+      margin-right: 4px;
+    }
+    .card-skill-body {
+      margin-top: 3px;
+      font-size: 10px;
+      line-height: 1.4;
+      color: #424242;
+      background: #ffffffaa;
+      border-radius: 6px;
+      padding: 4px;
+      flex: 1 1 auto;
+      overflow: hidden;
+    }
+
+    .card-stats {
+      margin-top: 4px;
+      padding-top: 3px;
+      border-top: 1px solid #d1c4e9;
+      display: flex;
+      justify-content: space-between;
+      gap: 4px;
+      font-size: 10px;
     }
     .stat {
       flex: 1;
       text-align: center;
-      background: #f8f8f8;
-      border-radius: 8px;
-      padding: 8px 4px;
+      background: #f8f8ff;
+      border-radius: 6px;
+      padding: 4px 2px;
+      border: 1px solid #c5cae9;
     }
     .stat-label {
       display: block;
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 4px;
+      font-size: 9px;
+      color: #5c6bc0;
+      margin-bottom: 2px;
+      letter-spacing: 0.05em;
     }
     .stat-value {
-      font-size: 18px;
+      font-size: 14px;
       font-weight: bold;
-      color: #333;
+      color: #303f9f;
+    }
+
+    .card-footer {
+      margin-top: 2px;
+      text-align: right;
+      font-size: 9px;
+      color: #757575;
+    }
+
+    @media (max-width: 720px) {
+      .layout {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #result {
+        max-width: none;
+      }
     }
   </style>
 </head>
 <body>
 
-  <h1>⚔️ 必殺技ジェネレーター（AI版）</h1>
+  <h1>⚔️ 必殺技ジェネレーター（カード版）</h1>
 
-  <textarea id="intro" placeholder="あなたの自己紹介文を入力してください"></textarea>
+  <div class="layout">
+    <!-- 左側：入力とボタン -->
+    <div class="left-pane">
+      <label class="field-label" for="intro">自己紹介文（最大60文字）</label>
+      <textarea
+        id="intro"
+        maxlength="60"
+        placeholder="あなたの自己紹介文を入力してください（最大60文字）"
+      ></textarea>
 
-  <button id="generateBtn">⚡ 必殺技を生成する</button>
-  <button id="sampleBtn">サンプル入力</button>
+      <label class="field-label" for="job">職業（最大10文字）</label>
+      <input
+        type="text"
+        id="job"
+        maxlength="10"
+        placeholder="例：会社員、DJなど"
+      />
 
-  <div id="error"></div>
-
-  <div id="result">
-    <div class="skill-name" id="skillName"></div>
-    <div class="skill-tagline" id="skillTagline"></div>
-    <div class="skill-body" id="skillBody"></div>
-
-    <!-- ここが 体力/攻撃力/防御力 の表示部分 -->
-    <div class="stats-box">
-      <div class="stat">
-        <span class="stat-label">体力</span>
-        <span class="stat-value" id="statHp">-</span>
+      <div>
+        <button id="generateBtn">⚡ 必殺技カードを生成する</button>
+        <button id="sampleBtn">サンプル入力</button>
+        <button id="clearBtn">🧹 クリア</button>
       </div>
-      <div class="stat">
-        <span class="stat-label">攻撃力</span>
-        <span class="stat-value" id="statAttack">-</span>
-      </div>
-      <div class="stat">
-        <span class="stat-label">防御力</span>
-        <span class="stat-value" id="statDefense">-</span>
+
+      <div id="error"></div>
+    </div>
+
+    <!-- 右側：カード表示 -->
+    <div id="result">
+      <div class="card">
+        <div class="card-inner">
+          <div class="card-header">
+            <div class="card-title-label">HISSATSU CARD</div>
+            <div class="card-rank" id="rarityLabel">UNIQUE</div>
+          </div>
+
+          <div class="card-portrait">
+            キャラクターイラスト<br>（後で設定）
+          </div>
+
+          <div class="card-body">
+            <div class="card-skill-name" id="skillName"></div>
+            <div class="card-skill-tagline" id="skillTagline"></div>
+
+            <div class="card-job">
+              <span class="card-job-label">職業</span>
+              <span class="card-job-value" id="jobText">（未設定）</span>
+              <span class="card-job-rarity" id="jobRarity"></span>
+            </div>
+
+            <div class="card-intro">
+              <span class="card-intro-label">自己紹介</span>
+              <span id="introText"></span>
+            </div>
+
+            <div class="card-skill-body" id="skillBody"></div>
+
+            <div class="card-stats">
+              <div class="stat">
+                <span class="stat-label">体力</span>
+                <span class="stat-value" id="statHp">-</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">攻撃力</span>
+                <span class="stat-value" id="statAttack">-</span>
+              </div>
+              <div class="stat">
+                <span class="stat-value" id="statDefense">-</span>
+              </div>
+            </div>
+
+            <div class="card-footer">
+              POWERED BY YOUR INTRO
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-
-  <button id="clearBtn">🧹 クリア</button>
 
   <script>
     // ===== ユニークさスコア計算 =====
@@ -189,63 +413,59 @@
       return total;
     }
 
-// 合計値をランダムに3つに分解（各0〜99）
-// さらに「80以上はレア」になるよう調整
-function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
-  const minTotal = parts * minPer;
-  const maxTotal = parts * maxPer;
-  let t = Math.max(minTotal, Math.min(total, maxTotal));
+    // ===== 合計値をランダムに3つに分解（各0〜99） + 高得点抑制 =====
+    function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
+      const minTotal = parts * minPer;
+      const maxTotal = parts * maxPer;
+      let t = Math.max(minTotal, Math.min(total, maxTotal));
 
-  // まず素のランダム分解
-  const result = new Array(parts).fill(minPer);
-  let remaining = t - minTotal;
+      // まず素のランダム分解
+      const result = new Array(parts).fill(minPer);
+      let remaining = t - minTotal;
 
-  for (let i = 0; i < parts; i++) {
-    if (i === parts - 1) {
-      const canAdd = maxPer - result[i];
-      const add = Math.min(remaining, canAdd);
-      result[i] += add;
-      remaining -= add;
-    } else {
-      const canAdd = Math.min(remaining, maxPer - result[i]);
-      const add = canAdd > 0 ? Math.floor(Math.random() * (canAdd + 1)) : 0;
-      result[i] += add;
-      remaining -= add;
-    }
-  }
-
-  // ---- ここから高得点抑制ロジック ----
-  // 80点以上は出にくくする（約10%の確率しか許可しない）
-  let excess = 0;
-  for (let i = 0; i < parts; i++) {
-    if (result[i] >= 80) {
-      const allowHigh = Math.random() < 0.1; // 10% だけ許可
-
-      if (!allowHigh) {
-        excess += (result[i] - 79); // 超過分を回収
-        result[i] = 79;             // 上限調整
+      for (let i = 0; i < parts; i++) {
+        if (i === parts - 1) {
+          const canAdd = maxPer - result[i];
+          const add = Math.min(remaining, canAdd);
+          result[i] += add;
+          remaining -= add;
+        } else {
+          const canAdd = Math.min(remaining, maxPer - result[i]);
+          const add = canAdd > 0 ? Math.floor(Math.random() * (canAdd + 1)) : 0;
+          result[i] += add;
+          remaining -= add;
+        }
       }
-    }
-  }
 
-  // 超過分を他へ再配分（合計値は維持）
-  while (excess > 0) {
-    const idx = Math.floor(Math.random() * parts);
-    if (result[idx] < 79) {
-      result[idx]++;
-      excess--;
-    } else {
-      // 79点が多くて困ったらランダムに下げて吸収
-      const j = Math.floor(Math.random() * parts);
-      if (result[j] > 0) {
-        excess--;
-        result[j]--;
+      // ---- 高得点（80以上）をレアにするロジック ----
+      let excess = 0;
+      for (let i = 0; i < parts; i++) {
+        if (result[i] >= 80) {
+          const allowHigh = Math.random() < 0.1; // 10% だけ許可
+          if (!allowHigh) {
+            excess += (result[i] - 79); // 超過分を回収
+            result[i] = 79;
+          }
+        }
       }
-    }
-  }
 
-  return result;
-}
+      // 超過分を他へ再配分（合計値は維持）
+      while (excess > 0) {
+        const idx = Math.floor(Math.random() * parts);
+        if (result[idx] < 79) {
+          result[idx]++;
+          excess--;
+        } else {
+          const j = Math.floor(Math.random() * parts);
+          if (result[j] > 0) {
+            result[j]--;
+            excess--;
+          }
+        }
+      }
+
+      return result;
+    }
 
     // ===== 自己紹介文から 体力・攻撃力・防御力を生成 =====
     function generateStatsFromIntro(intro) {
@@ -254,8 +474,43 @@ function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
       return { total, hp, attack, defense };
     }
 
-    // ===== ここから既存のUI処理 =====
+    // ===== 職業のレア度判定（星1〜5） =====
+    function calcJobRarity(job) {
+      if (!job) return 0;
+      const j = job.replace(/\s+/g, "");
+
+      const veryCommon = ["会社員", "公務員", "学生", "主婦", "アルバイト", "パート", "無職"];
+      const common = [
+        "エンジニア", "プログラマー", "SE", "営業", "販売員", "店員",
+        "事務", "経理", "総務", "看護師", "医師", "教師", "保育士",
+        "介護士", "運転手", "ドライバー", "飲食店スタッフ", "店長",
+        "フリーター"
+      ];
+      const lessCommon = [
+        "デザイナー", "イラストレーター", "Webデザイナー", "カメラマン",
+        "編集者", "ライター", "コンサルタント", "税理士", "弁護士",
+        "会計士", "薬剤師", "研究者", "大学教員", "起業家",
+        "社長", "フリーランス", "YouTuber", "インフルエンサー",
+        "DJ", "ミュージシャン", "音楽家"
+      ];
+
+      const inList = (arr) => arr.includes(j);
+
+      if (inList(veryCommon)) return 1;     // かなりメジャー
+      if (inList(common)) return 2;         // メジャー
+      if (inList(lessCommon)) return 3;     // やや珍しい
+
+      // リストにない職業は基本レア寄り
+      let stars = 4;
+      if (/[A-Za-z]/.test(j) || j.length >= 6) {
+        stars = 5; // 英字入りや長めの職業はよりレア扱い
+      }
+      return stars;
+    }
+
+    // ===== UIとの接続 =====
     const introEl = document.getElementById("intro");
+    const jobEl = document.getElementById("job");
     const generateBtn = document.getElementById("generateBtn");
     const sampleBtn = document.getElementById("sampleBtn");
     const clearBtn = document.getElementById("clearBtn");
@@ -267,16 +522,36 @@ function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
     const skillTaglineEl = document.getElementById("skillTagline");
     const skillBodyEl = document.getElementById("skillBody");
 
+    const introTextEl = document.getElementById("introText");
+    const jobTextEl = document.getElementById("jobText");
+    const jobRarityEl = document.getElementById("jobRarity");
+    const rarityLabelEl = document.getElementById("rarityLabel");
+
     const statHpEl = document.getElementById("statHp");
     const statAttackEl = document.getElementById("statAttack");
     const statDefenseEl = document.getElementById("statDefense");
 
-    // ⚡ 必殺技生成ボタン
+    // ⚡ 必殺技カード生成ボタン
     generateBtn.addEventListener("click", async () => {
       const text = introEl.value.trim();
+      const job = jobEl.value.trim();
 
       if (!text) {
-        errorBox.textContent = "自己紹介文を入力してください。";
+        errorBox.textContent = "自己紹介文を入力してください。（最大60文字）";
+        errorBox.style.display = "block";
+        resultBox.style.display = "none";
+        return;
+      }
+
+      if (text.length > 60) {
+        errorBox.textContent = "自己紹介文は最大60文字までです。";
+        errorBox.style.display = "block";
+        resultBox.style.display = "none";
+        return;
+      }
+
+      if (job.length > 10) {
+        errorBox.textContent = "職業は最大10文字までです。";
         errorBox.style.display = "block";
         resultBox.style.display = "none";
         return;
@@ -297,12 +572,38 @@ function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
 
         const data = await res.json();
 
-        // 必殺技のテキスト部分
-        skillNameEl.textContent = data.name;
-        skillTaglineEl.textContent = data.tagline;
-        skillBodyEl.textContent = data.description;
+        // 必殺技名：最大12文字に制限
+        let name = (data.name || "").trim();
+        if (name.length > 12) {
+          name = name.slice(0, 12);
+        }
+        skillNameEl.textContent = name;
 
-        // 🧮 体力・攻撃力・防御力を計算して反映
+        skillTaglineEl.textContent = data.tagline || "";
+        skillBodyEl.textContent = data.description || "";
+
+        // 自己紹介をカード内に表示
+        introTextEl.textContent = text;
+
+        // 職業とレア度をカードに反映
+        jobTextEl.textContent = job || "（未設定）";
+        const jobStars = calcJobRarity(job);
+        jobRarityEl.textContent = jobStars ? "★".repeat(jobStars) : "";
+
+        // レア度ラベルも職業レア度に連動させてもよい
+        if (jobStars >= 5) {
+          rarityLabelEl.textContent = "LEGENDARY";
+        } else if (jobStars === 4) {
+          rarityLabelEl.textContent = "EPIC";
+        } else if (jobStars === 3) {
+          rarityLabelEl.textContent = "RARE";
+        } else if (jobStars === 2) {
+          rarityLabelEl.textContent = "UNCOMMON";
+        } else {
+          rarityLabelEl.textContent = "COMMON";
+        }
+
+        // ステータス
         const stats = generateStatsFromIntro(text);
         statHpEl.textContent = stats.hp;
         statAttackEl.textContent = stats.attack;
@@ -317,25 +618,31 @@ function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
         resultBox.style.display = "none";
       } finally {
         generateBtn.disabled = false;
-        generateBtn.textContent = "⚡ 必殺技を生成する";
+        generateBtn.textContent = "⚡ 必殺技カードを生成する";
       }
     });
 
     // 📝 サンプル入力
     sampleBtn.addEventListener("click", () => {
       introEl.value =
-        "30代の会社員です。コツコツ作業するのが得意で、休日はゲームと料理をしています。明るい性格で、みんなを盛り上げるのが好きです。";
+        "30代の会社員です。コツコツ作業するのが得意で、休日はゲームと料理をしています。";
+      jobEl.value = "会社員";
     });
 
     // 🧹 クリア
     clearBtn.addEventListener("click", () => {
       introEl.value = "";
+      jobEl.value = "";
       skillNameEl.textContent = "";
       skillTaglineEl.textContent = "";
       skillBodyEl.textContent = "";
+      introTextEl.textContent = "";
+      jobTextEl.textContent = "（未設定）";
+      jobRarityEl.textContent = "";
       statHpEl.textContent = "-";
       statAttackEl.textContent = "-";
       statDefenseEl.textContent = "-";
+      rarityLabelEl.textContent = "UNIQUE";
       resultBox.style.display = "none";
       errorBox.style.display = "none";
     });
