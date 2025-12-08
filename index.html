@@ -474,6 +474,32 @@
       return { total, hp, attack, defense };
     }
 
+// ===== 必殺技名を最大長で、なるべく区切りよく切る =====
+function truncateSkillName(raw, maxLen = 12) {
+  if (!raw) return "";
+  let name = raw.trim();
+  if (name.length <= maxLen) return name;
+
+  // 先頭 maxLen+1 文字までを見て、区切り文字の最後の位置を探す
+  const chunk = name.slice(0, maxLen + 1);
+  const breakPattern = /[ 　・･\-＿‐／:：]/g; // 区切りっぽい文字たち
+  let lastBreak = -1;
+  let m;
+  while ((m = breakPattern.exec(chunk)) !== null) {
+    if (m.index <= maxLen) {
+      lastBreak = m.index;
+    }
+  }
+
+  if (lastBreak > 0) {
+    // 区切り文字の「手前」まで切る
+    return name.slice(0, lastBreak);
+  } else {
+    // 区切りがなければ普通に maxLen で切る
+    return name.slice(0, maxLen);
+  }
+}
+
     // ===== 職業のレア度判定（星1〜5） =====
     function calcJobRarity(job) {
       if (!job) return 0;
@@ -572,12 +598,9 @@
 
         const data = await res.json();
 
-        // 必殺技名：最大12文字に制限
-        let name = (data.name || "").trim();
-        if (name.length > 12) {
-          name = name.slice(0, 12);
-        }
-        skillNameEl.textContent = name;
+// 必殺技名：最大12文字、なるべく区切りよく切る
+const name = truncateSkillName(data.name || "", 12);
+skillNameEl.textContent = name;
 
         skillTaglineEl.textContent = data.tagline || "";
         skillBodyEl.textContent = data.description || "";
