@@ -189,30 +189,63 @@
       return total;
     }
 
-    // ===== 合計値をランダムに3つに分解（各0〜99） =====
-    function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
-      const minTotal = parts * minPer;
-      const maxTotal = parts * maxPer;
-      let t = Math.max(minTotal, Math.min(total, maxTotal));
+// 合計値をランダムに3つに分解（各0〜99）
+// さらに「80以上はレア」になるよう調整
+function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
+  const minTotal = parts * minPer;
+  const maxTotal = parts * maxPer;
+  let t = Math.max(minTotal, Math.min(total, maxTotal));
 
-      const result = new Array(parts).fill(minPer);
-      let remaining = t - minTotal;
+  // まず素のランダム分解
+  const result = new Array(parts).fill(minPer);
+  let remaining = t - minTotal;
 
-      for (let i = 0; i < parts; i++) {
-        if (i === parts - 1) {
-          const canAdd = maxPer - result[i];
-          const add = Math.min(remaining, canAdd);
-          result[i] += add;
-          remaining -= add;
-        } else {
-          const canAdd = Math.min(remaining, maxPer - result[i]);
-          const add = canAdd > 0 ? Math.floor(Math.random() * (canAdd + 1)) : 0;
-          result[i] += add;
-          remaining -= add;
-        }
-      }
-      return result;
+  for (let i = 0; i < parts; i++) {
+    if (i === parts - 1) {
+      const canAdd = maxPer - result[i];
+      const add = Math.min(remaining, canAdd);
+      result[i] += add;
+      remaining -= add;
+    } else {
+      const canAdd = Math.min(remaining, maxPer - result[i]);
+      const add = canAdd > 0 ? Math.floor(Math.random() * (canAdd + 1)) : 0;
+      result[i] += add;
+      remaining -= add;
     }
+  }
+
+  // ---- ここから高得点抑制ロジック ----
+  // 80点以上は出にくくする（約10%の確率しか許可しない）
+  let excess = 0;
+  for (let i = 0; i < parts; i++) {
+    if (result[i] >= 80) {
+      const allowHigh = Math.random() < 0.1; // 10% だけ許可
+
+      if (!allowHigh) {
+        excess += (result[i] - 79); // 超過分を回収
+        result[i] = 79;             // 上限調整
+      }
+    }
+  }
+
+  // 超過分を他へ再配分（合計値は維持）
+  while (excess > 0) {
+    const idx = Math.floor(Math.random() * parts);
+    if (result[idx] < 79) {
+      result[idx]++;
+      excess--;
+    } else {
+      // 79点が多くて困ったらランダムに下げて吸収
+      const j = Math.floor(Math.random() * parts);
+      if (result[j] > 0) {
+        excess--;
+        result[j]--;
+      }
+    }
+  }
+
+  return result;
+}
 
     // ===== 自己紹介文から 体力・攻撃力・防御力を生成 =====
     function generateStatsFromIntro(intro) {
