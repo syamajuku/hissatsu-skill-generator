@@ -86,11 +86,39 @@
       margin-top: 12px;
       line-height: 1.6;
     }
+
+    .stats-box {
+      margin-top: 16px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
+    }
+    .stat {
+      flex: 1;
+      text-align: center;
+      background: #f8f8f8;
+      border-radius: 8px;
+      padding: 8px 4px;
+    }
+    .stat-label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
   </style>
 </head>
 <body>
 
-  <h1>⚔️ 必殺技ジェネレーター</h1>
+  <h1>⚔️ 必殺技ジェネレーター（AI版）</h1>
 
   <textarea id="intro" placeholder="あなたの自己紹介文を入力してください"></textarea>
 
@@ -103,11 +131,97 @@
     <div class="skill-name" id="skillName"></div>
     <div class="skill-tagline" id="skillTagline"></div>
     <div class="skill-body" id="skillBody"></div>
+
+    <!-- ここが 体力/攻撃力/防御力 の表示部分 -->
+    <div class="stats-box">
+      <div class="stat">
+        <span class="stat-label">体力</span>
+        <span class="stat-value" id="statHp">-</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">攻撃力</span>
+        <span class="stat-value" id="statAttack">-</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">防御力</span>
+        <span class="stat-value" id="statDefense">-</span>
+      </div>
+    </div>
   </div>
 
   <button id="clearBtn">🧹 クリア</button>
 
   <script>
+    // ===== ユニークさスコア計算 =====
+    function calcUniquenessScore(intro) {
+      if (!intro) return 0;
+
+      const text = intro.replace(/\s+/g, "");
+      const length = text.length;
+      if (length === 0) return 0;
+
+      const uniqueChars = new Set(text).size;
+      const charDiversity = uniqueChars / length; // 0〜1 くらい
+
+      const hasLatin = /[A-Za-z]/.test(intro) ? 0.1 : 0;
+      const hasDigits = /[0-9０-９]/.test(intro) ? 0.05 : 0;
+      const hasSymbols = /[!！?？&＠@]/.test(intro) ? 0.05 : 0;
+
+      const lengthScore = Math.min(length / 200, 1); // 0〜1
+
+      let score =
+        charDiversity * 0.5 +
+        lengthScore * 0.3 +
+        hasLatin +
+        hasDigits +
+        hasSymbols;
+
+      score = Math.max(0, Math.min(score, 1));
+      return score;
+    }
+
+    // ===== 合計値を決める（平均150、最低10） =====
+    function decideTotalFromUniqueness(intro) {
+      const u = calcUniquenessScore(intro); // 0〜1
+      const minTotal = 10;   // 最低合計値
+      const maxTotal = 290;  // 10と290の中間が150になる
+      const total = Math.round(minTotal + u * (maxTotal - minTotal));
+      return total;
+    }
+
+    // ===== 合計値をランダムに3つに分解（各0〜99） =====
+    function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
+      const minTotal = parts * minPer;
+      const maxTotal = parts * maxPer;
+      let t = Math.max(minTotal, Math.min(total, maxTotal));
+
+      const result = new Array(parts).fill(minPer);
+      let remaining = t - minTotal;
+
+      for (let i = 0; i < parts; i++) {
+        if (i === parts - 1) {
+          const canAdd = maxPer - result[i];
+          const add = Math.min(remaining, canAdd);
+          result[i] += add;
+          remaining -= add;
+        } else {
+          const canAdd = Math.min(remaining, maxPer - result[i]);
+          const add = canAdd > 0 ? Math.floor(Math.random() * (canAdd + 1)) : 0;
+          result[i] += add;
+          remaining -= add;
+        }
+      }
+      return result;
+    }
+
+    // ===== 自己紹介文から 体力・攻撃力・防御力を生成 =====
+    function generateStatsFromIntro(intro) {
+      const total = decideTotalFromUniqueness(intro);
+      const [hp, attack, defense] = splitTotalRandom(total, 3, 0, 99);
+      return { total, hp, attack, defense };
+    }
+
+    // ===== ここから既存のUI処理 =====
     const introEl = document.getElementById("intro");
     const generateBtn = document.getElementById("generateBtn");
     const sampleBtn = document.getElementById("sampleBtn");
@@ -120,6 +234,9 @@
     const skillTaglineEl = document.getElementById("skillTagline");
     const skillBodyEl = document.getElementById("skillBody");
 
+    const statHpEl = document.getElementById("statHp");
+    const statAttackEl = document.getElementById("statAttack");
+    const statDefenseEl = document.getElementById("statDefense");
 
     // ⚡ 必殺技生成ボタン
     generateBtn.addEventListener("click", async () => {
@@ -137,7 +254,7 @@
       generateBtn.textContent = "生成中…";
 
       try {
-	const res = await fetch("/api/generate-skill", {
+        const res = await fetch("/api/generate-skill", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ intro: text })
@@ -147,14 +264,21 @@
 
         const data = await res.json();
 
-        // 結果を表示
+        // 必殺技のテキスト部分
         skillNameEl.textContent = data.name;
         skillTaglineEl.textContent = data.tagline;
         skillBodyEl.textContent = data.description;
 
+        // 🧮 体力・攻撃力・防御力を計算して反映
+        const stats = generateStatsFromIntro(text);
+        statHpEl.textContent = stats.hp;
+        statAttackEl.textContent = stats.attack;
+        statDefenseEl.textContent = stats.defense;
+
         resultBox.style.display = "block";
 
       } catch (err) {
+        console.error(err);
         errorBox.textContent = "生成に失敗しました。サーバーが起動しているか確認してください。";
         errorBox.style.display = "block";
         resultBox.style.display = "none";
@@ -164,12 +288,11 @@
       }
     });
 
-
     // 📝 サンプル入力
     sampleBtn.addEventListener("click", () => {
-      introEl.value = "30代の会社員です。コツコツ作業するのが得意で、休日はゲームと料理をしています。明るい性格で、みんなを盛り上げるのが好きです。";
+      introEl.value =
+        "30代の会社員です。コツコツ作業するのが得意で、休日はゲームと料理をしています。明るい性格で、みんなを盛り上げるのが好きです。";
     });
-
 
     // 🧹 クリア
     clearBtn.addEventListener("click", () => {
@@ -177,10 +300,12 @@
       skillNameEl.textContent = "";
       skillTaglineEl.textContent = "";
       skillBodyEl.textContent = "";
+      statHpEl.textContent = "-";
+      statAttackEl.textContent = "-";
+      statDefenseEl.textContent = "-";
       resultBox.style.display = "none";
       errorBox.style.display = "none";
     });
-
   </script>
 </body>
 </html>
