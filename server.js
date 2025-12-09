@@ -159,16 +159,16 @@ app.post("/api/generate-avatar", upload.single("photo"), async (req, res) => {
 
     console.log("OpenAI image-to-image edit start");
 
-    const result = await client.images.edit({
-      model: "gpt-image-1",
-      image: imageFile,
-      prompt,
-      n: 1,
-      size: "1024x1024",
-      input_fidelity: "high",
-      quality: "high",
-      output_format: "png",
-    });
+const result = await client.images.edit({
+  model: "gpt-image-1",
+  image: imageFile,
+  prompt,
+  n: 1,
+  size: "512x512",          // ★ここを小さくする
+  input_fidelity: "high",
+  quality: "high",
+  output_format: "png",
+});
 
     console.log("OpenAI image-to-image edit done");
 
