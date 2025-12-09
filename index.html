@@ -69,15 +69,15 @@
     #clearBtn { background: #aaa; color: #fff; }
     #downloadBtn { background: #4caf50; color: #fff; }
 
-    /* カード外枠（枠合成イメージ） */
-.card {
-  width: 380px;
-  padding: 12px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #d0ecff, #9fd6ff, #e4f6ff); /* 水色系グラデーション */
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
-  border: 4px solid #66b6ff; /* 水色の枠線 */
-}
+    /* カード外枠（水色） */
+    .card {
+      width: 380px;
+      padding: 12px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #d0ecff, #9fd6ff, #e4f6ff);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+      border: 4px solid #66b6ff;
+    }
     /* カード内側 */
     .card-inner {
       border-radius: 14px;
@@ -209,7 +209,6 @@
       background: #4fc3f7;
       transition: width 0.3s ease;
     }
-
   </style>
 </head>
 
@@ -247,9 +246,7 @@
       <!-- プレビュー用（自動で更新される） -->
       <img id="avatarPreview" class="avatar" style="display: none" />
 
-<button id="generateBtn">
-  ⚡ カードを生成する
-</button>
+      <button id="generateBtn">⚡ カードを生成する</button>
       <button id="sampleBtn">📝 サンプル入力</button>
       <button id="clearBtn">🧹 入力をクリア</button>
       <button id="downloadBtn">📥 カード画像をPNGでダウンロード</button>
@@ -288,6 +285,16 @@
 
           <div class="desc" id="desc">ここに説明文が入ります。</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 進捗オーバーレイ（必ずスクリプトより上に置く） -->
+  <div id="progressOverlay" class="progress-overlay" style="display:none;">
+    <div class="progress-box">
+      <div id="progressText" class="progress-text">カード生成中...</div>
+      <div class="progress-bar-bg">
+        <div id="progressBar" class="progress-bar-fill"></div>
       </div>
     </div>
   </div>
@@ -389,23 +396,6 @@
     const photoInput = document.getElementById("photo");
     const avatarPreview = document.getElementById("avatarPreview");
 
-    const progressOverlay = document.getElementById("progressOverlay");
-    const progressBar = document.getElementById("progressBar");
-    const progressText = document.getElementById("progressText");
-
-    function showProgress(percent, text) {
-      progressOverlay.style.display = "flex";
-      progressBar.style.width = percent + "%";
-      if (text) progressText.textContent = text;
-    }
-
-    function hideProgress() {
-      progressOverlay.style.display = "none";
-      progressBar.style.width = "0%";
-      progressText.textContent = "カード生成中...";
-    }
-
-
     const generateBtn = document.getElementById("generateBtn");
     const sampleBtn = document.getElementById("sampleBtn");
     const clearBtn = document.getElementById("clearBtn");
@@ -424,145 +414,172 @@
     const jobNameEl = document.getElementById("jobName");
     const rarityStarsEl = document.getElementById("rarityStars");
 
-    // ==========================================================
-    // ⚡ 必殺技＋キャラクター画像 同時生成ボタン
-    // ==========================================================
-    // ==========================================================
-    // ⚡ カードを生成する（必殺技＋キャラクター画像を並列で生成）
-    // ==========================================================
-    generateBtn.addEventListener("click", async () => {
-      const intro = introEl.value.trim();
-      const job = jobEl.value.trim();
-      const file = photoInput.files[0];
-      const playerName = playerNameInputEl.value.trim();
+    const progressOverlay = document.getElementById("progressOverlay");
+    const progressBar = document.getElementById("progressBar");
+    const progressText = document.getElementById("progressText");
 
-      if (!intro) {
-        alert("自己紹介文を入力してください。");
-        return;
+    function showProgress(percent, text) {
+      if (!progressOverlay || !progressBar || !progressText) return;
+      progressOverlay.style.display = "flex";
+      progressBar.style.width = percent + "%";
+      if (text) progressText.textContent = text;
+    }
+
+    function hideProgress() {
+      if (!progressOverlay || !progressBar || !progressText) return;
+      progressOverlay.style.display = "none";
+      progressBar.style.width = "0%";
+      progressText.textContent = "カード生成中...";
+    }
+
+// ==========================================================
+// ⚡ カードを生成する（必殺技＋キャラクター画像を並列で生成）
+// ==========================================================
+generateBtn.addEventListener("click", async () => {
+  const intro = introEl.value.trim();
+  const job = jobEl.value.trim();
+  const file = photoInput.files[0];
+  const playerName = playerNameInputEl.value.trim();
+
+  if (!intro) {
+    alert("自己紹介文を入力してください。");
+    return;
+  }
+
+  generateBtn.disabled = true;
+  const oldLabel = generateBtn.textContent;
+  generateBtn.textContent = "生成中…";
+
+  // ---- 0% でスタート ----
+  showProgress(0, "カード生成を開始しています...");
+
+  let avatarProgressTimer = null;
+
+  try {
+    const tasks = [];
+
+    // --- 必殺技生成タスク（0% → 30%） ---
+    const skillTask = (async () => {
+      showProgress(5, "必殺技を生成しています...");
+
+      const skillRes = await fetch("/api/generate-skill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intro }),
+      });
+
+      const skillData = await skillRes.json();
+
+      if (!skillRes.ok) {
+        throw new Error(skillData.error || "必殺技生成に失敗しました。");
       }
 
-      generateBtn.disabled = true;
-      const oldLabel = generateBtn.textContent;
-      generateBtn.textContent = "生成中…";
+      const skillName = truncateSkillName(skillData.name || "", 12);
+      skillNameEl.textContent = skillName;
+      taglineEl.textContent = skillData.tagline;
+      descEl.textContent = skillData.description;
 
-      // 進捗バー開始
-      showProgress(10, "カード生成を開始しています...");
+      // 名前
+      cardPlayerName.textContent = playerName || "キャラクター名";
 
-      try {
-        const tasks = [];
+      // 職業
+      jobNameEl.textContent = job || "(未設定)";
+      const rarity = calcJobRarity(job);
+      rarityStarsEl.innerHTML = "★".repeat(rarity);
 
-        // --- 必殺技生成タスク ---
-        const skillTask = (async () => {
-          showProgress(25, "必殺技を生成しています...");
+      // ステータス生成
+      const total = Math.floor(Math.random() * 141) + 10;
+      const [hp, atk, def] = splitTotalRandom(total);
+      hpValEl.textContent = hp;
+      atkValEl.textContent = atk;
+      defValEl.textContent = def;
 
-          const skillRes = await fetch("/api/generate-skill", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ intro }),
-          });
+      // ---- 必殺技完了：30% へ進める ----
+      showProgress(file ? 30 : 100, "カードを生成しています...");
+    })();
 
-          const skillData = await skillRes.json();
+    tasks.push(skillTask);
 
-          if (!skillRes.ok) {
-            throw new Error(skillData.error || "必殺技生成に失敗しました。");
-          }
+    // --- キャラクター画像生成タスク（30% → 100%） ---
+    if (file) {
+      const avatarTask = (async () => {
+        let current = 30; // ここから進む
+        showProgress(current, "キャラクター画像を生成しています...");
 
-          // 必殺技名（12文字以内＋区切り調整）
-          const skillName = truncateSkillName(skillData.name || "", 12);
-          skillNameEl.textContent = skillName;
-          taglineEl.textContent = skillData.tagline;
-          descEl.textContent = skillData.description;
+        // 疑似プログレスバー：最大90％まで伸ばす
+avatarProgressTimer = setInterval(() => {
+  current += 0.9; // ★スピード半分に変更
+  if (current >= 90) {
+    current = 90;
+    clearInterval(avatarProgressTimer);
+    avatarProgressTimer = null;
+  }
+  showProgress(current);
+}, 1000);
 
-          // 名前（キャラクター名）
-          cardPlayerName.textContent = playerName || "キャラクター名";
+        const formData = new FormData();
+        formData.append("photo", file);
 
-          // 職業＆レア度
-          jobNameEl.textContent = job || "(未設定)";
-          const rarity = calcJobRarity(job);
-          rarityStarsEl.innerHTML = "★".repeat(rarity);
+        const avatarRes = await fetch("/api/generate-avatar", {
+          method: "POST",
+          body: formData,
+        });
 
-          // ステータス生成
-          const total = Math.floor(Math.random() * 141) + 10;
-          const [hp, atk, def] = splitTotalRandom(total);
-          hpValEl.textContent = hp;
-          atkValEl.textContent = atk;
-          defValEl.textContent = def;
-
-          showProgress(file ? 55 : 100, "必殺技の生成が完了しました");
-        })();
-
-        tasks.push(skillTask);
-
-        // --- キャラクター画像生成タスク（写真がある場合のみ） ---
-        if (file) {
-          const avatarTask = (async () => {
-            showProgress(60, "キャラクター画像を生成しています...");
-
-            const formData = new FormData();
-            formData.append("photo", file);
-
-            const avatarRes = await fetch("/api/generate-avatar", {
-              method: "POST",
-              body: formData,
-            });
-
-            let avatarData = {};
-            try {
-              avatarData = await avatarRes.json();
-            } catch (e) {
-              console.error("avatar json parse error:", e);
-            }
-
-            if (!avatarRes.ok) {
-              console.error("avatar api error:", avatarData);
-              alert(
-                "キャラクター画像の生成に失敗しました。\n" +
-                  (avatarData.error || `status: ${avatarRes.status}`)
-              );
-              return;
-            }
-
-            if (!avatarData.imageUrl) {
-              console.error("avatar api: no imageUrl in response", avatarData);
-              alert("画像URLが返ってきませんでした。");
-              return;
-            }
-
-            avatarPreview.src = avatarData.imageUrl;
-            avatarPreview.style.display = "block";
-            cardAvatar.src = avatarData.imageUrl;
-
-            showProgress(100, "カードが完成しました！");
-          })();
-
-          tasks.push(avatarTask);
+        let avatarData = {};
+        try {
+          avatarData = await avatarRes.json();
+        } catch (e) {
+          console.error("avatar json parse error:", e);
         }
 
-        // 必殺技＋（あれば）アバターを並列で待つ
-        await Promise.all(tasks);
-
-        if (!file) {
-          // 写真がない場合は、必殺技だけで100%にして少し待ってから閉じる
-          showProgress(100, "カードが完成しました！");
+        if (!avatarRes.ok) {
+          console.error("avatar api error:", avatarData);
+          alert(
+            "キャラクター画像の生成に失敗しました。\n" +
+              (avatarData.error || `status: ${avatarRes.status}`)
+          );
+          return;
         }
 
-        setTimeout(() => {
-          hideProgress();
-        }, 500);
+        if (!avatarData.imageUrl) {
+          alert("画像URLが返ってきませんでした。");
+          return;
+        }
 
-      } catch (err) {
-        console.error(err);
-        alert("生成に失敗しました。");
-        hideProgress();
-      } finally {
-        generateBtn.disabled = false;
-        generateBtn.textContent = oldLabel;
-      }
-    });
+        // ---- 画像生成完了 → 一気に100% ----
+        if (avatarProgressTimer) clearInterval(avatarProgressTimer);
+        showProgress(100, "カードが完成しました！");
 
-    // ==========================================================
-    // 📝 サンプル入力
-    // ==========================================================
+        avatarPreview.src = avatarData.imageUrl;
+        avatarPreview.style.display = "block";
+        cardAvatar.src = avatarData.imageUrl;
+      })();
+
+      tasks.push(avatarTask);
+    }
+
+    // --- 並列処理 ---
+    await Promise.all(tasks);
+
+    if (!file) {
+      showProgress(100, "カードが完成しました！");
+    }
+
+    setTimeout(() => hideProgress(), 500);
+
+  } catch (err) {
+    console.error(err);
+    alert("生成に失敗しました。");
+    hideProgress();
+  } finally {
+    if (avatarProgressTimer) clearInterval(avatarProgressTimer);
+    generateBtn.disabled = false;
+    generateBtn.textContent = oldLabel;
+  }
+});
+
+
+    // 📝 サンプル
     sampleBtn.addEventListener("click", () => {
       playerNameInputEl.value = "シンヤ";
       introEl.value =
@@ -571,9 +588,7 @@
       cardPlayerName.textContent = "シンヤ";
     });
 
-    // ==========================================================
     // 🧹 クリア
-    // ==========================================================
     clearBtn.addEventListener("click", () => {
       playerNameInputEl.value = "";
       introEl.value = "";
@@ -592,15 +607,12 @@
       defValEl.textContent = "0";
     });
 
-    // ==========================================================
     // 📥 カード画像をPNGとしてダウンロード
-    // ==========================================================
     downloadBtn.addEventListener("click", async () => {
       try {
-        // html2canvasでカード全体をCanvas化
         const canvas = await html2canvas(cardRoot, {
-          backgroundColor: null, // 透明を維持
-          scale: 2, // 高解像度で出したいので拡大
+          backgroundColor: null,
+          scale: 2,
         });
 
         const dataUrl = canvas.toDataURL("image/png");
@@ -615,16 +627,5 @@
       }
     });
   </script>
-
-  <!-- 進捗オーバーレイ -->
-  <div id="progressOverlay" class="progress-overlay" style="display:none;">
-    <div class="progress-box">
-      <div id="progressText" class="progress-text">カード生成中...</div>
-      <div class="progress-bar-bg">
-        <div id="progressBar" class="progress-bar-fill"></div>
-      </div>
-    </div>
-  </div>
-
 </body>
 </html>

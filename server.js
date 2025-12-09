@@ -164,7 +164,7 @@ const result = await client.images.edit({
   image: imageFile,
   prompt,
   n: 1,
-  size: "512x512",          // ★ここを小さくする
+  size: "1024x1024",        // ★元の値に戻す
   input_fidelity: "high",
   quality: "high",
   output_format: "png",
