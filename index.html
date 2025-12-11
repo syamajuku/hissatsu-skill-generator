@@ -77,6 +77,7 @@
       background: linear-gradient(135deg, #d0ecff, #9fd6ff, #e4f6ff);
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
       border: 4px solid #66b6ff;
+      position: relative; /* ★ 角バッジの基準にする */
     }
     /* カード内側 */
     .card-inner {
@@ -89,6 +90,47 @@
       );
       padding: 16px;
       text-align: center;
+    }
+
+    /* 角バッジ（ジャンケン / トランプ） */
+    .corner-badge {
+      position: absolute;
+      top: 10px;
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 30% 0, #e5e7eb, #9ca3af);
+      color: #111827;
+      font-weight: 700;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.6);
+      border: 2px solid rgba(248, 250, 252, 0.85);
+      z-index: 3;
+      font-size: 24px;
+      user-select: none;
+    }
+
+    .janken-badge {
+      left: 10px;
+    }
+
+    .trump-badge {
+      right: 10px;
+      font-size: 18px;
+      flex-direction: column;
+      padding-top: 4px;
+      line-height: 1.1;
+    }
+
+    .trump-rank {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .trump-suit {
+      font-size: 16px;
     }
 
     .card-title {
@@ -255,6 +297,16 @@
     <!-- 右ペイン（カード表示） -->
     <div class="right-pane">
       <div class="card" id="cardRoot">
+        <!-- ★ 左上：ジャンケンバッジ -->
+        <div id="jankenBadge" class="corner-badge janken-badge" title="ジャンケン">
+          ✊
+        </div>
+        <!-- ★ 右上：トランプバッジ -->
+        <div id="trumpBadge" class="corner-badge trump-badge" title="トランプ">
+          <div class="trump-suit">♥</div>
+          <div class="trump-rank">A</div>
+        </div>
+
         <div class="card-inner">
           <div class="card-title">あたらしいチーム</div>
           <div class="player-name" id="cardPlayerName">キャラクター名</div>
@@ -389,6 +441,17 @@
       return result;
     }
 
+    // ==========================================================
+    // ★ 文字列ハッシュ（ジャンケン＆トランプ決定用）
+    // ==========================================================
+    function hashString(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) {
+        h = (h * 31 + str.charCodeAt(i)) | 0;
+      }
+      return Math.abs(h);
+    }
+
     // DOM取得
     const playerNameInputEl = document.getElementById("playerNameInput");
     const introEl = document.getElementById("intro");
@@ -418,6 +481,10 @@
     const progressBar = document.getElementById("progressBar");
     const progressText = document.getElementById("progressText");
 
+    // ★ ジャンケン／トランプDOM
+    const jankenBadgeEl = document.getElementById("jankenBadge");
+    const trumpBadgeEl = document.getElementById("trumpBadge");
+
     function showProgress(percent, text) {
       if (!progressOverlay || !progressBar || !progressText) return;
       progressOverlay.style.display = "flex";
@@ -432,152 +499,216 @@
       progressText.textContent = "カード生成中...";
     }
 
-// ==========================================================
-// ⚡ カードを生成する（必殺技＋キャラクター画像を並列で生成）
-// ==========================================================
-generateBtn.addEventListener("click", async () => {
-  const intro = introEl.value.trim();
-  const job = jobEl.value.trim();
-  const file = photoInput.files[0];
-  const playerName = playerNameInputEl.value.trim();
+    // ==========================================================
+    // ★ ジャンケン＆トランプの候補と現在値
+    // ==========================================================
+    const JANKEN_SET = [
+      { label: "グー", emoji: "✊" },
+      { label: "チョキ", emoji: "✌️" },
+      { label: "パー", emoji: "✋" },
+    ];
 
-  if (!intro) {
-    alert("自己紹介文を入力してください。");
-    return;
-  }
+    const TRUMP_SUITS = [
+      { label: "ハート", symbol: "♥", color: "#ef4444" },
+      { label: "ダイヤ", symbol: "♦", color: "#f97316" },
+      { label: "クラブ", symbol: "♣", color: "#22c55e" },
+      { label: "スペード", symbol: "♠", color: "#111827" },
+    ];
 
-  generateBtn.disabled = true;
-  const oldLabel = generateBtn.textContent;
-  generateBtn.textContent = "生成中…";
+    const TRUMP_RANKS = [
+      "A", "2", "3", "4", "5", "6", "7",
+      "8", "9", "10", "J", "Q", "K",
+    ];
 
-  // ---- 0% でスタート ----
-  showProgress(0, "カード生成を開始しています...");
+    let currentJanken = JANKEN_SET[0];
+    let currentSuit = TRUMP_SUITS[0];
+    let currentRank = TRUMP_RANKS[0];
 
-  let avatarProgressTimer = null;
+    // ==========================================================
+    // ★ 入力内容からジャンケン＆トランプを決定し表示する
+    // ==========================================================
+    function updateBattleIcons(name, intro, job) {
+      const base = (name || "") + "|" + (intro || "") + "|" + (job || "");
+      const seed = hashString(base);
 
-  try {
-    const tasks = [];
+      const jIndex = seed % JANKEN_SET.length;
+      const sIndex = Math.floor(seed / 7) % TRUMP_SUITS.length;
+      const rIndex = Math.floor(seed / 13) % TRUMP_RANKS.length;
 
-    // --- 必殺技生成タスク（0% → 30%） ---
-    const skillTask = (async () => {
-      showProgress(5, "必殺技を生成しています...");
+      currentJanken = JANKEN_SET[jIndex];
+      currentSuit = TRUMP_SUITS[sIndex];
+      currentRank = TRUMP_RANKS[rIndex];
 
-      const skillRes = await fetch("/api/generate-skill", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intro }),
-      });
-
-      const skillData = await skillRes.json();
-
-      if (!skillRes.ok) {
-        throw new Error(skillData.error || "必殺技生成に失敗しました。");
+      if (jankenBadgeEl) {
+        jankenBadgeEl.textContent = currentJanken.emoji;
+        jankenBadgeEl.title = `ジャンケン：${currentJanken.label}`;
       }
 
-      const skillName = truncateSkillName(skillData.name || "", 12);
-      skillNameEl.textContent = skillName;
-      taglineEl.textContent = skillData.tagline;
-      descEl.textContent = skillData.description;
+      if (trumpBadgeEl) {
+        const suitDiv = trumpBadgeEl.querySelector(".trump-suit");
+        const rankDiv = trumpBadgeEl.querySelector(".trump-rank");
+        if (suitDiv) {
+          suitDiv.textContent = currentSuit.symbol;
+          suitDiv.style.color = currentSuit.color;
+        }
+        if (rankDiv) {
+          rankDiv.textContent = currentRank;
+        }
+        trumpBadgeEl.title = `${currentSuit.label}の${currentRank}`;
+      }
+    }
 
-      // 名前
-      cardPlayerName.textContent = playerName || "キャラクター名";
+    // 初期表示（デフォルト状態）
+    updateBattleIcons("キャラクター名", "", "");
 
-      // 職業
-      jobNameEl.textContent = job || "(未設定)";
-      const rarity = calcJobRarity(job);
-      rarityStarsEl.innerHTML = "★".repeat(rarity);
+    // ==========================================================
+    // ⚡ カードを生成する（必殺技＋キャラクター画像を並列で生成）
+    // ==========================================================
+    generateBtn.addEventListener("click", async () => {
+      const intro = introEl.value.trim();
+      const job = jobEl.value.trim();
+      const file = photoInput.files[0];
+      const playerName = playerNameInputEl.value.trim();
 
-      // ステータス生成
-      const total = Math.floor(Math.random() * 141) + 10;
-      const [hp, atk, def] = splitTotalRandom(total);
-      hpValEl.textContent = hp;
-      atkValEl.textContent = atk;
-      defValEl.textContent = def;
+      if (!intro) {
+        alert("自己紹介文を入力してください。");
+        return;
+      }
 
-      // ---- 必殺技完了：30% へ進める ----
-      showProgress(file ? 30 : 100, "カードを生成しています...");
-    })();
+      generateBtn.disabled = true;
+      const oldLabel = generateBtn.textContent;
+      generateBtn.textContent = "生成中…";
 
-    tasks.push(skillTask);
+      // ---- 0% でスタート ----
+      showProgress(0, "カード生成を開始しています...");
 
-    // --- キャラクター画像生成タスク（30% → 100%） ---
-    if (file) {
-      const avatarTask = (async () => {
-        let current = 30; // ここから進む
-        showProgress(current, "キャラクター画像を生成しています...");
+      let avatarProgressTimer = null;
 
-        // 疑似プログレスバー：最大90％まで伸ばす
-avatarProgressTimer = setInterval(() => {
-  current += 0.9; // ★スピード半分に変更
-  if (current >= 90) {
-    current = 90;
-    clearInterval(avatarProgressTimer);
-    avatarProgressTimer = null;
-  }
-  showProgress(current);
-}, 1000);
+      try {
+        const tasks = [];
 
-        const formData = new FormData();
-        formData.append("photo", file);
+        // --- 必殺技生成タスク（0% → 30%） ---
+        const skillTask = (async () => {
+          showProgress(5, "必殺技を生成しています...");
 
-        const avatarRes = await fetch("/api/generate-avatar", {
-          method: "POST",
-          body: formData,
-        });
+          const skillRes = await fetch("/api/generate-skill", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ intro }),
+          });
 
-        let avatarData = {};
-        try {
-          avatarData = await avatarRes.json();
-        } catch (e) {
-          console.error("avatar json parse error:", e);
+          const skillData = await skillRes.json();
+
+          if (!skillRes.ok) {
+            throw new Error(skillData.error || "必殺技生成に失敗しました。");
+          }
+
+          const skillName = truncateSkillName(skillData.name || "", 12);
+          skillNameEl.textContent = skillName;
+          taglineEl.textContent = skillData.tagline;
+          descEl.textContent = skillData.description;
+
+          // 名前
+          cardPlayerName.textContent = playerName || "キャラクター名";
+
+          // 職業
+          jobNameEl.textContent = job || "(未設定)";
+          const rarity = calcJobRarity(job);
+          rarityStarsEl.innerHTML = "★".repeat(rarity);
+
+          // ステータス生成
+          const total = Math.floor(Math.random() * 141) + 10;
+          const [hp, atk, def] = splitTotalRandom(total);
+          hpValEl.textContent = hp;
+          atkValEl.textContent = atk;
+          defValEl.textContent = def;
+
+          // ★ ジャンケン＆トランプ更新
+          updateBattleIcons(cardPlayerName.textContent, intro, job);
+
+          // ---- 必殺技完了：30% へ進める ----
+          showProgress(file ? 30 : 100, "カードを生成しています...");
+        })();
+
+        tasks.push(skillTask);
+
+        // --- キャラクター画像生成タスク（30% → 100%） ---
+        if (file) {
+          const avatarTask = (async () => {
+            let current = 30; // ここから進む
+            showProgress(current, "キャラクター画像を生成しています...");
+
+            // 疑似プログレスバー：最大90％まで伸ばす
+            avatarProgressTimer = setInterval(() => {
+              current += 0.9; // スピード0.9
+              if (current >= 90) {
+                current = 90;
+                clearInterval(avatarProgressTimer);
+                avatarProgressTimer = null;
+              }
+              showProgress(current);
+            }, 1000);
+
+            const formData = new FormData();
+            formData.append("photo", file);
+
+            const avatarRes = await fetch("/api/generate-avatar", {
+              method: "POST",
+              body: formData,
+            });
+
+            let avatarData = {};
+            try {
+              avatarData = await avatarRes.json();
+            } catch (e) {
+              console.error("avatar json parse error:", e);
+            }
+
+            if (!avatarRes.ok) {
+              console.error("avatar api error:", avatarData);
+              alert(
+                "キャラクター画像の生成に失敗しました。\n" +
+                  (avatarData.error || `status: ${avatarRes.status}`)
+              );
+              return;
+            }
+
+            if (!avatarData.imageUrl) {
+              alert("画像URLが返ってきませんでした。");
+              return;
+            }
+
+            // ---- 画像生成完了 → 一気に100% ----
+            if (avatarProgressTimer) clearInterval(avatarProgressTimer);
+            showProgress(100, "カードが完成しました！");
+
+            avatarPreview.src = avatarData.imageUrl;
+            avatarPreview.style.display = "block";
+            cardAvatar.src = avatarData.imageUrl;
+          })();
+
+          tasks.push(avatarTask);
         }
 
-        if (!avatarRes.ok) {
-          console.error("avatar api error:", avatarData);
-          alert(
-            "キャラクター画像の生成に失敗しました。\n" +
-              (avatarData.error || `status: ${avatarRes.status}`)
-          );
-          return;
+        // --- 並列処理 ---
+        await Promise.all(tasks);
+
+        if (!file) {
+          showProgress(100, "カードが完成しました！");
         }
 
-        if (!avatarData.imageUrl) {
-          alert("画像URLが返ってきませんでした。");
-          return;
-        }
+        setTimeout(() => hideProgress(), 500);
 
-        // ---- 画像生成完了 → 一気に100% ----
+      } catch (err) {
+        console.error(err);
+        alert("生成に失敗しました。");
+        hideProgress();
+      } finally {
         if (avatarProgressTimer) clearInterval(avatarProgressTimer);
-        showProgress(100, "カードが完成しました！");
-
-        avatarPreview.src = avatarData.imageUrl;
-        avatarPreview.style.display = "block";
-        cardAvatar.src = avatarData.imageUrl;
-      })();
-
-      tasks.push(avatarTask);
-    }
-
-    // --- 並列処理 ---
-    await Promise.all(tasks);
-
-    if (!file) {
-      showProgress(100, "カードが完成しました！");
-    }
-
-    setTimeout(() => hideProgress(), 500);
-
-  } catch (err) {
-    console.error(err);
-    alert("生成に失敗しました。");
-    hideProgress();
-  } finally {
-    if (avatarProgressTimer) clearInterval(avatarProgressTimer);
-    generateBtn.disabled = false;
-    generateBtn.textContent = oldLabel;
-  }
-});
-
+        generateBtn.disabled = false;
+        generateBtn.textContent = oldLabel;
+      }
+    });
 
     // 📝 サンプル
     sampleBtn.addEventListener("click", () => {
@@ -586,6 +717,13 @@ avatarProgressTimer = setInterval(() => {
         "料理が得意で、明るくて社交的。人を笑わせるのが好き。";
       jobEl.value = "バリスタ";
       cardPlayerName.textContent = "シンヤ";
+
+      // ★ サンプル入力でも見た目を更新
+      updateBattleIcons(
+        cardPlayerName.textContent,
+        introEl.value.trim(),
+        jobEl.value.trim()
+      );
     });
 
     // 🧹 クリア
@@ -605,6 +743,12 @@ avatarProgressTimer = setInterval(() => {
       hpValEl.textContent = "0";
       atkValEl.textContent = "0";
       defValEl.textContent = "0";
+
+      // ★ デフォルトにリセット
+      currentJanken = JANKEN_SET[0];
+      currentSuit = TRUMP_SUITS[0];
+      currentRank = TRUMP_RANKS[0];
+      updateBattleIcons("キャラクター名", "", "");
     });
 
     // 📥 カード画像をPNGとしてダウンロード
