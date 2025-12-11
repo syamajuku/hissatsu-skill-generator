@@ -77,7 +77,7 @@
       background: linear-gradient(135deg, #d0ecff, #9fd6ff, #e4f6ff);
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
       border: 4px solid #66b6ff;
-      position: relative; /* ★ 角バッジの基準にする */
+      position: relative; /* 角バッジの基準にする */
     }
     /* カード内側 */
     .card-inner {
@@ -170,11 +170,16 @@
       color: #555;
       margin-bottom: 15px;
     }
-    .desc {
-      font-size: 13px;
-      text-align: left;
+
+    .job-area {
       margin-top: 10px;
-      line-height: 1.4em;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .rarity-stars {
+      color: gold;
+      font-size: 18px;
+      margin-left: 4px;
     }
 
     .status-area {
@@ -200,15 +205,20 @@
       font-weight: bold;
     }
 
-    .job-area {
-      margin-top: 10px;
-      font-size: 14px;
-      font-weight: bold;
-    }
-    .rarity-stars {
-      color: gold;
-      font-size: 18px;
-      margin-left: 4px;
+    /* 自己紹介文表示エリア */
+    .intro-area {
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.4;
+      text-align: left;
+      color: #333;
+      padding: 10px;
+      background: #fafafa;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      min-height: 40px;
+      box-sizing: border-box;
+      white-space: pre-wrap;
     }
 
     /* 進捗オーバーレイ */
@@ -297,11 +307,11 @@
     <!-- 右ペイン（カード表示） -->
     <div class="right-pane">
       <div class="card" id="cardRoot">
-        <!-- ★ 左上：ジャンケンバッジ -->
+        <!-- 左上：ジャンケンバッジ -->
         <div id="jankenBadge" class="corner-badge janken-badge" title="ジャンケン">
           ✊
         </div>
-        <!-- ★ 右上：トランプバッジ -->
+        <!-- 右上：トランプバッジ -->
         <div id="trumpBadge" class="corner-badge trump-badge" title="トランプ">
           <div class="trump-suit">♥</div>
           <div class="trump-rank">A</div>
@@ -320,6 +330,9 @@
             <span id="rarityStars" class="rarity-stars"></span>
           </div>
 
+          <!-- 自己紹介文の表示領域 -->
+          <div class="intro-area" id="introArea"></div>
+
           <div class="status-area">
             <div class="status-box">
               <div class="status-title">体力</div>
@@ -334,14 +347,12 @@
               <div class="status-value" id="defVal">0</div>
             </div>
           </div>
-
-          <div class="desc" id="desc">ここに説明文が入ります。</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 進捗オーバーレイ（必ずスクリプトより上に置く） -->
+  <!-- 進捗オーバーレイ -->
   <div id="progressOverlay" class="progress-overlay" style="display:none;">
     <div class="progress-box">
       <div id="progressText" class="progress-text">カード生成中...</div>
@@ -355,9 +366,7 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
   <script>
-    // ==========================================================
     // ★ スキル名を区切りの良い位置で最大12文字に調整
-    // ==========================================================
     function truncateSkillName(raw, maxLen = 12) {
       if (!raw) return "";
       let name = raw.trim();
@@ -375,9 +384,7 @@
       return lastBreak > 0 ? name.slice(0, lastBreak) : name.slice(0, maxLen);
     }
 
-    // ==========================================================
     // ★ 職業のレア度（星1〜5）
-    // ==========================================================
     function calcJobRarity(job) {
       if (!job) return 1;
       const lengthScore = Math.min(job.length, 10);
@@ -390,9 +397,7 @@
       return 1;
     }
 
-    // ==========================================================
     // ★ 合計値を3つに分配（80以上はレア扱い）
-    // ==========================================================
     function splitTotalRandom(total, parts = 3, minPer = 0, maxPer = 99) {
       const minTotal = parts * minPer;
       const maxTotal = parts * maxPer;
@@ -441,9 +446,7 @@
       return result;
     }
 
-    // ==========================================================
     // ★ 文字列ハッシュ（ジャンケン＆トランプ決定用）
-    // ==========================================================
     function hashString(str) {
       let h = 0;
       for (let i = 0; i < str.length; i++) {
@@ -470,18 +473,18 @@
 
     const skillNameEl = document.getElementById("skillName");
     const taglineEl = document.getElementById("tagline");
-    const descEl = document.getElementById("desc");
     const hpValEl = document.getElementById("hpVal");
     const atkValEl = document.getElementById("atkVal");
     const defValEl = document.getElementById("defVal");
     const jobNameEl = document.getElementById("jobName");
     const rarityStarsEl = document.getElementById("rarityStars");
+    const introAreaEl = document.getElementById("introArea");
 
     const progressOverlay = document.getElementById("progressOverlay");
     const progressBar = document.getElementById("progressBar");
     const progressText = document.getElementById("progressText");
 
-    // ★ ジャンケン／トランプDOM
+    // ジャンケン／トランプDOM
     const jankenBadgeEl = document.getElementById("jankenBadge");
     const trumpBadgeEl = document.getElementById("trumpBadge");
 
@@ -499,9 +502,7 @@
       progressText.textContent = "カード生成中...";
     }
 
-    // ==========================================================
-    // ★ ジャンケン＆トランプの候補と現在値
-    // ==========================================================
+    // ジャンケン＆トランプ候補
     const JANKEN_SET = [
       { label: "グー", emoji: "✊" },
       { label: "チョキ", emoji: "✌️" },
@@ -524,9 +525,7 @@
     let currentSuit = TRUMP_SUITS[0];
     let currentRank = TRUMP_RANKS[0];
 
-    // ==========================================================
-    // ★ 入力内容からジャンケン＆トランプを決定し表示する
-    // ==========================================================
+    // 入力内容からジャンケン＆トランプを決定し表示する
     function updateBattleIcons(name, intro, job) {
       const base = (name || "") + "|" + (intro || "") + "|" + (job || "");
       const seed = hashString(base);
@@ -558,12 +557,10 @@
       }
     }
 
-    // 初期表示（デフォルト状態）
+    // 初期表示
     updateBattleIcons("キャラクター名", "", "");
 
-    // ==========================================================
-    // ⚡ カードを生成する（必殺技＋キャラクター画像を並列で生成）
-    // ==========================================================
+    // ⚡ カード生成
     generateBtn.addEventListener("click", async () => {
       const intro = introEl.value.trim();
       const job = jobEl.value.trim();
@@ -579,7 +576,6 @@
       const oldLabel = generateBtn.textContent;
       generateBtn.textContent = "生成中…";
 
-      // ---- 0% でスタート ----
       showProgress(0, "カード生成を開始しています...");
 
       let avatarProgressTimer = null;
@@ -587,7 +583,7 @@
       try {
         const tasks = [];
 
-        // --- 必殺技生成タスク（0% → 30%） ---
+        // 必殺技生成タスク
         const skillTask = (async () => {
           showProgress(5, "必殺技を生成しています...");
 
@@ -606,7 +602,6 @@
           const skillName = truncateSkillName(skillData.name || "", 12);
           skillNameEl.textContent = skillName;
           taglineEl.textContent = skillData.tagline;
-          descEl.textContent = skillData.description;
 
           // 名前
           cardPlayerName.textContent = playerName || "キャラクター名";
@@ -623,24 +618,25 @@
           atkValEl.textContent = atk;
           defValEl.textContent = def;
 
-          // ★ ジャンケン＆トランプ更新
+          // 自己紹介文をカードに表示
+          introAreaEl.textContent = intro;
+
+          // ジャンケン＆トランプ更新
           updateBattleIcons(cardPlayerName.textContent, intro, job);
 
-          // ---- 必殺技完了：30% へ進める ----
           showProgress(file ? 30 : 100, "カードを生成しています...");
         })();
 
         tasks.push(skillTask);
 
-        // --- キャラクター画像生成タスク（30% → 100%） ---
+        // キャラクター画像生成タスク
         if (file) {
           const avatarTask = (async () => {
-            let current = 30; // ここから進む
+            let current = 30;
             showProgress(current, "キャラクター画像を生成しています...");
 
-            // 疑似プログレスバー：最大90％まで伸ばす
             avatarProgressTimer = setInterval(() => {
-              current += 0.9; // スピード0.9
+              current += 0.9;
               if (current >= 90) {
                 current = 90;
                 clearInterval(avatarProgressTimer);
@@ -678,7 +674,6 @@
               return;
             }
 
-            // ---- 画像生成完了 → 一気に100% ----
             if (avatarProgressTimer) clearInterval(avatarProgressTimer);
             showProgress(100, "カードが完成しました！");
 
@@ -690,7 +685,6 @@
           tasks.push(avatarTask);
         }
 
-        // --- 並列処理 ---
         await Promise.all(tasks);
 
         if (!file) {
@@ -718,7 +712,8 @@
       jobEl.value = "バリスタ";
       cardPlayerName.textContent = "シンヤ";
 
-      // ★ サンプル入力でも見た目を更新
+      introAreaEl.textContent = introEl.value.trim();
+
       updateBattleIcons(
         cardPlayerName.textContent,
         introEl.value.trim(),
@@ -737,14 +732,13 @@
       cardPlayerName.textContent = "キャラクター名";
       skillNameEl.textContent = "必殺技名";
       taglineEl.textContent = "キャッチコピー";
-      descEl.textContent = "ここに説明文が入ります。";
       jobNameEl.textContent = "";
       rarityStarsEl.textContent = "";
       hpValEl.textContent = "0";
       atkValEl.textContent = "0";
       defValEl.textContent = "0";
+      introAreaEl.textContent = "";
 
-      // ★ デフォルトにリセット
       currentJanken = JANKEN_SET[0];
       currentSuit = TRUMP_SUITS[0];
       currentRank = TRUMP_RANKS[0];
